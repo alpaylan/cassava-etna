@@ -1,5 +1,10 @@
 -- http://cabal.readthedocs.io/en/latest/nix-local-build-overview.html
-packages: .
+packages:
+    .
+    etna/
+
+with-compiler: ghc-9.6.6
+
 -- packages: examples/
 
 -- tests: True

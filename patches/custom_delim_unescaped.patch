@@ -1,0 +1,13 @@
+diff --git a/src/Data/Csv/Encoding.hs b/src/Data/Csv/Encoding.hs
+index 31b76f8..a5bffa0 100644
+--- a/src/Data/Csv/Encoding.hs
++++ b/src/Data/Csv/Encoding.hs
+@@ -298,7 +298,7 @@ escape !qtng !delim !s
+     | qtng == QuoteMinimal && needsQuoting = buildQuoted
+     | otherwise = byteString s
+   where
+-    needsQuoting = B.any (\b -> b == doubleQuote || b == comma || b == newline || b == cr) s
++    needsQuoting = B.any (\b -> b == doubleQuote || b == delim || b == newline || b == cr) s
+ 
+     dquote :: P.BoundedPrim Word8
+     dquote =

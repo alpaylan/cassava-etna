@@ -11,3 +11,6 @@ dist-newstyle/
 cabal.sandbox.config
 .ghc.environment.*
 .stack-work
+.hegel/
+progress.jsonl
+etna.log

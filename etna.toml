@@ -1,0 +1,130 @@
+name = "cassava"
+description = "RFC 4180 CSV parsing/encoding library (haskell-hvr/cassava). Bug fixes mined from upstream history; modern HEAD is the base, each patch reverse-applies a fix to install the original bug."
+language = "haskell"
+strategies = ["quickcheck", "hedgehog", "falsify", "smallcheck"]
+crate = "cassava"
+base_commit = "4deed6e10bb7f6d3d035abf1aeaed9ff547f700b"
+
+# ---------------------------------------------------------------------------
+# Variant: escaped_trailing_quote
+# ---------------------------------------------------------------------------
+[[tasks]]
+mutations = ["escaped_trailing_quote"]
+
+[tasks.source]
+repo = "https://github.com/haskell-hvr/cassava"
+commits = ["14d401d384d0983aac4336745049b44efc835e34"]
+commit_subjects = ["fix: handle case when input for field parser is a single opening double-quote"]
+origin = "internal"
+summary = "escapedField used `S.init <$> A.scan ...` and assumed the scan returned at least one byte. When the input was just a single opening doublequote `\"` (or any unbalanced opening), the scan returned `BS.empty`, and `S.init` raised `Prelude.error` for an empty bytestring. The fix checks `S.null` first and uses Parser failure instead."
+
+[tasks.injection]
+kind = "patch"
+files = ["src/Data/Csv/Parser.hs"]
+locations = [{ file = "src/Data/Csv/Parser.hs", line = 149, symbol = "escapedField" }]
+patch = "patches/escaped_trailing_quote.patch"
+
+[tasks.bug]
+short_name = "escapedField_crashes_on_lone_quote"
+invariant = "decode of any byte sequence must yield Left or Right; it must never raise an exception. In particular `decode NoHeader \"\\\"\"` must produce a Left, not crash."
+how_triggered = "Reverse-applying the patch removes the S.null guard, so the buggy `S.init` is called on an empty bytestring whenever the doublequote-scan consumed nothing — e.g. on input `\\\"`."
+
+[[tasks.tasks]]
+property = "EscapedFieldHandlesLoneQuote"
+witnesses = [
+  { test_fn = "witness_escaped_field_handles_lone_quote_case_lone_quote", note = "decode of `\\\"` must not crash" },
+  { test_fn = "witness_escaped_field_handles_lone_quote_case_unbalanced", note = "decode of `\\\"a` must not crash" },
+]
+
+# ---------------------------------------------------------------------------
+# Variant: foldr_skips_errors
+# ---------------------------------------------------------------------------
+[[tasks]]
+mutations = ["foldr_skips_errors"]
+
+[tasks.source]
+repo = "https://github.com/haskell-hvr/cassava"
+commits = ["6c9127e88be1797be2f54ea1f833d73bab6282bd"]
+commit_subjects = ["Fix #102 for foldr"]
+origin = "internal"
+summary = "foldrRecords had no `Cons (Left _)` case, so when the stream contained a conversion error the fold halted and trailing Right records were discarded. The Haddock for the Foldable instance promises that records that fail to convert are *skipped*; the fix adds the `Left _ -> go z rs` arm."
+
+[tasks.injection]
+kind = "patch"
+files = ["src/Data/Csv/Streaming.hs"]
+locations = [{ file = "src/Data/Csv/Streaming.hs", line = 97, symbol = "foldrRecords" }]
+patch = "patches/foldr_skips_errors.patch"
+
+[tasks.bug]
+short_name = "foldrRecords_halts_on_error"
+invariant = "F.foldr (:) [] (mkRecords xs) = [x | Right x <- xs]: the Foldable instance for Records skips conversion errors instead of stopping at the first one."
+how_triggered = "Reverse-applying the patch deletes the `Cons (Left _)` clause from foldrRecords. Folding `[Left _, Right 1, Right 2]` then yields `[]` instead of `[1,2]`."
+
+[[tasks.tasks]]
+property = "FoldrSkipsConversionErrors"
+witnesses = [
+  { test_fn = "witness_foldr_skips_conversion_errors_case_left_right", note = "Left then two Rights folds to the two Rights" },
+  { test_fn = "witness_foldr_skips_conversion_errors_case_interleaved", note = "Interleaved Left/Right folds to the Rights only" },
+]
+
+# ---------------------------------------------------------------------------
+# Variant: foldl_skips_errors
+# ---------------------------------------------------------------------------
+[[tasks]]
+mutations = ["foldl_skips_errors"]
+
+[tasks.source]
+repo = "https://github.com/haskell-hvr/cassava"
+commits = ["e1de8377e492a9285564dfa9cee84759220d9753"]
+commit_subjects = ["Fix #102 for foldl'"]
+origin = "internal"
+summary = "Same defect as foldrRecords but for foldlRecords' — the Foldable instance for Records was not skipping conversion errors as documented. The fix is symmetric: add the `Cons (Left _) -> go z rs` arm."
+
+[tasks.injection]
+kind = "patch"
+files = ["src/Data/Csv/Streaming.hs"]
+locations = [{ file = "src/Data/Csv/Streaming.hs", line = 105, symbol = "foldlRecords'" }]
+patch = "patches/foldl_skips_errors.patch"
+
+[tasks.bug]
+short_name = "foldlRecords_halts_on_error"
+invariant = "F.foldl' f z over Records skips Left items: the strict left fold sees only the Right values, in order."
+how_triggered = "Reverse-applying the patch deletes the `Cons (Left _)` clause from foldlRecords'. Folding `[Left _, Right 1, Right 2]` accumulates nothing where the Right values should have been observed."
+
+[[tasks.tasks]]
+property = "FoldlSkipsConversionErrors"
+witnesses = [
+  { test_fn = "witness_foldl_skips_conversion_errors_case_left_right", note = "foldl' (flip (:)) [] over [Left, Right 1, Right 2] = [2,1] (then reversed to [1,2])" },
+  { test_fn = "witness_foldl_skips_conversion_errors_case_interleaved", note = "Interleaved Left/Right left-folds to the Rights only" },
+]
+
+# ---------------------------------------------------------------------------
+# Variant: custom_delim_unescaped
+# ---------------------------------------------------------------------------
+[[tasks]]
+mutations = ["custom_delim_unescaped"]
+
+[tasks.source]
+repo = "https://github.com/haskell-hvr/cassava"
+commits = ["8f1abb653b1d3f43e33525e65784b01ecdd27dd5"]
+commit_subjects = ["Fix bug where custom delimiters weren't escaped"]
+origin = "internal"
+summary = "encode's escape function decided whether to quote a field by checking for `comma` (literal 0x2C). When the user picked a different `encDelimiter` (tab, semicolon, etc.) and a field contained that delimiter, escape did not quote it — so the delimiter leaked into the encoded output and broke round-tripping. The fix swaps the literal `comma` for the actual `delim` parameter."
+
+[tasks.injection]
+kind = "patch"
+files = ["src/Data/Csv/Encoding.hs"]
+locations = [{ file = "src/Data/Csv/Encoding.hs", line = 295, symbol = "escape" }]
+patch = "patches/custom_delim_unescaped.patch"
+
+[tasks.bug]
+short_name = "escape_uses_literal_comma_not_delim"
+invariant = "Round-trip: decodeWith opts NoHeader (encodeWith opts [fields]) = Right [fields] for any non-empty record whose fields don't contain `\\\"`/CR/LF, when opts uses a non-comma delimiter that is also a possible field byte."
+how_triggered = "Reverse-applying the patch swaps `b == delim` for `b == comma` inside `needsQuoting`. Encoding `[\"a;b\", \"c\"]` with delim=`;` then emits `a;b;c\\r\\n`, and the decoder splits the first field at `;`."
+
+[[tasks.tasks]]
+property = "CustomDelimEscaped"
+witnesses = [
+  { test_fn = "witness_custom_delim_escaped_case_semicolon", note = "delim=`;`, fields=[\"a;b\",\"c\"] must round-trip" },
+  { test_fn = "witness_custom_delim_escaped_case_tab", note = "delim=`\\t`, fields=[\"x\\ty\",\"z\"] must round-trip" },
+]
