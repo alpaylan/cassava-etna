@@ -1,12 +1,12 @@
 diff --git a/src/Data/Csv/Streaming.hs b/src/Data/Csv/Streaming.hs
-index 5c0b9cb..0c41755 100644
+index 0c41755..5c0b9cb 100644
 --- a/src/Data/Csv/Streaming.hs
 +++ b/src/Data/Csv/Streaming.hs
-@@ -106,6 +106,7 @@ foldlRecords' :: (a -> b -> a) -> a -> Records b -> a
+@@ -106,7 +106,6 @@ foldlRecords' :: (a -> b -> a) -> a -> Records b -> a
  foldlRecords' f = go
    where
      go z (Cons (Right x) rs) = let z' = f z x in z' `seq` go z' rs
-+    go z (Cons (Left _) rs) = go z rs
+-    go z (Cons (Left _) rs) = go z rs
      go z _ = z
  {-# INLINE foldlRecords' #-}
  

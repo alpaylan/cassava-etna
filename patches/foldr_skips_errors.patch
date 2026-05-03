@@ -1,12 +1,12 @@
 diff --git a/src/Data/Csv/Streaming.hs b/src/Data/Csv/Streaming.hs
-index d77bb03..0c41755 100644
+index 0c41755..d77bb03 100644
 --- a/src/Data/Csv/Streaming.hs
 +++ b/src/Data/Csv/Streaming.hs
-@@ -98,6 +98,7 @@ foldrRecords :: (a -> b -> b) -> b -> Records a -> b
+@@ -98,7 +98,6 @@ foldrRecords :: (a -> b -> b) -> b -> Records a -> b
  foldrRecords f = go
    where
      go z (Cons (Right x) rs) = f x (go z rs)
-+    go z (Cons (Left _) rs) = go z rs
+-    go z (Cons (Left _) rs) = go z rs
      go z _ = z
  {-# INLINE foldrRecords #-}
  
